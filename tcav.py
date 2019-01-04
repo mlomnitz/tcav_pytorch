@@ -28,15 +28,8 @@ class TCAV(object):
         Returns:
             sign of the directional derivative
         """
-        grads = {}
-
-        # Grad points in the direction which DECREASES probability of class
-        mymodel.register_hook(save_grad(act))
-        mymodel.zero_grad()
-        #
-        out[0, class_id].backward()
         # negative one to get direction that decreases the probability
-        grad = np.reshape(-1.*grads[act], -1)
+        grad = np.reshape(mymodel.get_gradient(act, [class_id], cav.bottleneck), -1)
         dot_prod = np.dot(grad, cav.get_direction(concept))
         return dot_prod < 0
 

@@ -2,39 +2,66 @@
 import numpy as np
 # Pytorch
 import torch
+from torch.autograd import grad
 
 
 class ModelWrapper():
     """ Simple model wrapper to hold pytorch models plus set up the needed
-    hooks to access the activations and grads
+    hooks to access the activations and grads.
     """
 
     def __init__(self, model=None, bottlenecks={}):
-        """ Initialize wrapper with model and set up the hooks to the bottlenecks
+        """ Initialize wrapper with model and set up the hooks to the bottlenecks.
 
         Args:
             model (nn.Module): Model to test
             bottlenecks (dict): Dictionary attaching names to the layers to
                 hook into. Expects, at least, an input, logit and prediction.
         """
+        self.ends = None
+        self.y_input = None
+        self.loss = None
+        self.bottlenecks_tensors = None
+        self.bottlenecks_gradients = None
+        #
         self.model = model
-        self.grads = {}
-        if 'logits' or 'input' or 'prediction' not in bottlenecks.keys():
-            raise 'Wrapper expects at least logits, input and predictions'
+        
+    def _make_gradient_tensors(self):
+        """
+        Makes gradient tensors for all bottleneck tensors.
+        """
+        for bottleneck in self.bottleneck_tensors:
+            self.bottlenecks_gradients[bottleneck] = grad(
+                self.loss, self.bottlenecks_tensors[bottleneck])
 
-        self.bottleneck = bottlenecks
-        
-        def save_grad(name):
-            def hook(grad):
-                self.grads[name] = grad
-            return hook
-        
-        for key in self.bottleneck.keys():
-            self.model.register_hook(save_grad(self.bottleneck[key]))
-        
     def eval(self):
+        """ Sets wrapped model to eval mode as is done in pytorch.
+        """
         self.model.eval()
 
     def train(self):
+        """ Sets wrapped model to train mode as is done in pytorch.
+        """        
         self.model.train()
-        
+
+    def __call__(self, x):
+        """ Calls prediction on wrapped model pytorch.
+        """
+        self.ends = self.model(x)
+        return self.ends
+            
+    def get_gradient(self, acts, y, bottleneck_name):
+        """ Returns the gradient at a given bottle_neck.
+
+        Args:
+            acts: Activation of the bottleneck (layer)
+            y: Index of the logit layer (class)
+            bottleneck_name: Name of the bottleneck to get gradients w.r.t.
+
+        Returns:
+            (torch.tensor): Tensor containing the gradients at layer.
+        """
+        self.bottlenecks_tensors = acts
+        self.y_input = y
+        self._make_gradient_tensors()
+        return self.bottlenecks_gradients[bottleneck_name]
