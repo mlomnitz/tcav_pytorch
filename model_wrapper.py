@@ -1,7 +1,4 @@
-# Python
-import numpy as np
 # Pytorch
-import torch
 import copy
 from torch.autograd import grad
 
@@ -41,13 +38,20 @@ class ModelWrapper():
             if name in bottlenecks.keys():
                 mod.register_forward_hook(save_activation(bottlenecks[name]))
                     
-    def _make_gradient_tensors(self):
+    def _make_gradient_tensors(self, y, bottleneck_name):
         """
-        Makes gradient tensors for all bottleneck tensors.
+        Makes gradient tensor for logit y w.r.t. layer with activations
+        
+        Args:
+            y (int): Index of logit (class)
+            bottleneck_name (string): Name of layer activations
+
+        Returns:
+            (torch.tensor): Gradients of logit w.r.t. to activations
+
         """
-        for bottleneck in self.bottleneck_tensors:
-            self.bottlenecks_gradients[bottleneck] = grad(
-                self.loss, self.bottlenecks_tensors[bottleneck])
+        acts = self.bottlenecks_tensors[bottleneck_name]
+        return grad(self.ends[:, y], acts)
 
     def eval(self):
         """ Sets wrapped model to eval mode as is done in pytorch.
@@ -65,18 +69,15 @@ class ModelWrapper():
         self.ends = self.model(x)
         return self.ends
             
-    def get_gradient(self, acts, y, bottleneck_name):
+    def get_gradient(self, y, bottleneck_name):
         """ Returns the gradient at a given bottle_neck.
 
         Args:
-            acts: Activation of the bottleneck (layer)
             y: Index of the logit layer (class)
             bottleneck_name: Name of the bottleneck to get gradients w.r.t.
 
         Returns:
             (torch.tensor): Tensor containing the gradients at layer.
         """
-        self.bottlenecks_tensors = acts
         self.y_input = y
-        self._make_gradient_tensors()
-        return self.bottlenecks_gradients[bottleneck_name]
+        return self._make_gradient_tensors(y, bottleneck_name)
