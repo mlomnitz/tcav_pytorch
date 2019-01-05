@@ -2,6 +2,7 @@
 import numpy as np
 # Pytorch
 import torch
+import copy
 from torch.autograd import grad
 
 
@@ -21,11 +22,25 @@ class ModelWrapper():
         self.ends = None
         self.y_input = None
         self.loss = None
-        self.bottlenecks_tensors = None
         self.bottlenecks_gradients = None
-        #
-        self.model = model
-        
+        self.bottlenecks_tensors = {}
+        self.model = copy.deepcopy(model)
+
+        def save_activation(name):
+            """ Creates hooks to the activations
+            Args:
+                name (string): Name of the layer to hook into
+            """
+            def hook(mod, inp, out):
+                """ Saves the activation hook to dictionary
+                """
+                self.bottlenecks_tensors[name] = out
+            return hook
+
+        for name, mod in self.model._modules.items():
+            if name in bottlenecks.keys():
+                mod.register_forward_hook(save_activation(bottlenecks[name]))
+                    
     def _make_gradient_tensors(self):
         """
         Makes gradient tensors for all bottleneck tensors.
