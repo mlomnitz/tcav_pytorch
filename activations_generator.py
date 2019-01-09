@@ -5,6 +5,7 @@ import torch
 from torch.utils.data import DataLoader
 from utils import CelebADataset
 
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class ActivationsGenerator():
     def __init__(self, model, source_dir, source_df, acts_dir,
@@ -43,16 +44,25 @@ class ActivationsGenerator():
                                         num_workers=num_workers)
             acts = {}
             for idx, batch in enumerate(concept_loader):
+                if idx > self.max_examples:
+                    break
+                batch = batch.to(device)
                 out_ = self.model(batch)
                 for bottleneck in self.bottleneck_names:
-                    acts[bottleneck].append(acts[bottleneck], self.model.
+                    if bottleneck not in acts.keys():
+                        acts[bottleneck] = (self.model.
                                             bottlenecks_tensors[bottleneck].
-                                            numpy())
+                                            cpu().detach().numpy())
+                    else:
+                        acts[bottleneck] = np.append(
+                            acts[bottleneck],
+                            self.model.bottlenecks_tensors[bottleneck].cpu().
+                            detach().numpy(), axis=0)
                 if verbose:
                     print("[{}/{}]".format(idx, len(concept_loader)))
                     
             for bottleneck in self.bottleneck_names:
-                acts_path = os.join(self.acts_dir, 'acts_{}_{}'.format(concept, bottleneck))
+                acts_path = os.path.join(self.acts_dir, 'acts_{}_{}'.format(concept, bottleneck))
                 np.save(acts_path, acts[bottleneck])
                 
                 
