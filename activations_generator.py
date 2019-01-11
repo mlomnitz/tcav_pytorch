@@ -7,6 +7,7 @@ from utils import CelebADataset
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+
 class ActivationsGenerator():
     def __init__(self, model, source_dir, source_df, acts_dir,
                  bottleneck_names, concepts=None, transform=None,
@@ -33,6 +34,7 @@ class ActivationsGenerator():
         # check if acts_dir exists
         if not os.path.exists(self.acts_dir):
             os.makedirs(self.acts_dir)
+        self.model.model.to(device)
         self.model.eval()
         for concept in self.concepts:
             sub_frame = self.concepts_df[self.concepts_df[concept] == 1]
@@ -44,9 +46,10 @@ class ActivationsGenerator():
                                         num_workers=num_workers)
             acts = {}
             for idx, batch in enumerate(concept_loader):
-                if idx > self.max_examples:
+                if idx == self.max_examples:
                     break
                 batch = batch.to(device)
+                # need to run batch through the model to capture activations
                 out_ = self.model(batch)
                 for bottleneck in self.bottleneck_names:
                     if bottleneck not in acts.keys():
@@ -62,9 +65,18 @@ class ActivationsGenerator():
                     print("[{}/{}]".format(idx, len(concept_loader)))
                     
             for bottleneck in self.bottleneck_names:
-                acts_path = os.path.join(self.acts_dir, 'acts_{}_{}'.format(concept, bottleneck))
+                acts_path = os.path.join(self.acts_dir, 'acts_{}_{}'
+                                         .format(concept, bottleneck))
                 np.save(acts_path, acts[bottleneck])
-                
-                
-                    
-                    
+
+    def load_activations(self):
+        acts = {}
+        for concept in self.concepts:
+            if concept not in acts:
+                acts[concept] = {}
+            for bottleneck in self.bottleneck_names:
+                acts_path = os.path.join(self.acts_dir, 'acts_{}_{}.npy'
+                                         .format(concept, bottleneck))
+                acts[concept][bottleneck] = np.load(acts_path)
+
+        return acts
