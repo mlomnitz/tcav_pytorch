@@ -35,6 +35,7 @@ class CAV(object):
             labels.extend([idx]*min_data_points)
             labels2text[idx] = concept
         x = np.array(x)
+        labels = np.array(labels)
         return x, labels, labels2text
     
     def __init__(self, concepts, bottleneck, hparams, save_path=None):
@@ -49,7 +50,7 @@ class CAV(object):
                                                          self.bottleneck,
                                                          acts)
         
-        if self.hparama.model_type == 'linear':
+        if self.hparams.model_type == 'linear':
             lm = linear_model.SGDClassifier(alpha=self.hparams.alpha)
         elif self.hparams.model_type == 'logistic':
             lm = linear_model.LogisticRegression()
@@ -68,7 +69,7 @@ class CAV(object):
         else:
             self.cavs = [c for c in lm.coef_]
         self.save_cavs()
-        
+
     def train_lm(self, lm, x, y, labels2text):
         x_train, x_test, y_train, y_test, = train_test_split(x, y,
                                                              test_size=0.2,
@@ -81,7 +82,9 @@ class CAV(object):
         num_correct = 0
         for class_id in range(num_classes):
             # get indices of all test data that has this class.
+            print(type(y_test))
             idx = (y_test == class_id)
+
             acc[labels2text[class_id]] = metrics.accuracy_score(
                 y_pred[idx], y_test[idx])
             # overall correctness is weighted by the number of examples in
@@ -90,7 +93,7 @@ class CAV(object):
         acc['overall'] = float(num_correct) / float(len(y_test))
         return acc
     
-    def _save_cavs(self):
+    def save_cavs(self):
         """Save a dictionary of this CAV to a pickle."""
         save_dict = {
             'concepts': self.concepts,
